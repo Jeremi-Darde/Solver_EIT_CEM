@@ -1,0 +1,74 @@
+cout<<"Creation of the FEM matrix"<<endl;
+
+// the matrix is NbDof x NbEl, and is constructed by blocks
+
+// part involving only u 
+
+cout<<"Creation of part B: ";
+
+int NbDof = Vh.ndof; // # of degrees of freedom for volumic functions
+
+varf CEMvolumic (u,v) = int2d(Th)(sigma*dx(u)*dx(v) + sigma*dy(u)*dy(v));
+matrix B = CEMvolumic(Vh,Vh);
+for (int kk = 0; kk<NbEl ; kk++){
+	varf CEMsurf (u,v) = int1d(Th,kk+1)(u*v/zci(kk));
+	matrix Btemp = CEMsurf(Vh,Vh);
+	B = B + Btemp;
+}
+
+cout<<"done!"<<endl;
+
+// part involving u and U
+
+cout<<"Creation of part C: ";
+
+matrix C;
+
+
+{
+int[int] raws(NbDof*NbEl), cols(NbDof*NbEl);
+int[int] temp(NbDof);
+for (int kk=0;kk<NbDof; kk++){temp(kk)=kk;};
+real[int] values(NbDof*NbEl); 
+for(int kk= 0; kk< NbEl; kk++){
+	raws(kk*NbDof:(kk+1)*NbDof-1) = temp;
+	cols(kk*NbDof:(kk+1)*NbDof-1) = kk;
+	varf boundterm(u,v) = - int1d(Th,kk+1)(v/zci(kk));
+	values(kk*NbDof:(kk+1)*NbDof-1) = boundterm(0,Vh);
+}
+C = [raws,cols,values];
+}
+
+cout<<"done!"<<endl;
+
+// part involving only U
+
+cout<<"Creation of part D: ";
+matrix D;
+{
+int[int] rows(NbEl*NbEl), cols(NbEl*NbEl);
+real[int] values(NbEl*NbEl);
+for (int kk=0;kk<NbEl;kk++){
+	for (int ll=0;ll<NbEl;ll++){
+		rows[kk*(NbEl-1)+ll] = kk;
+		cols[kk*(NbEl-1)+ll] = ll;
+		if (kk!=ll) values[kk*(NbEl-1)+ll] = 0.0;
+		else values[kk*(NbEl-1)+ll] = int1d(Th,ll+1)(1/zci(ll));
+	};
+};
+D = [rows,cols,values];
+// HERE WE ADD THE EXTRA TERMS IN THE MATRIX TO SET THE MEAN VALUE OF MEASURED CURRENTS EQUAL TO ZERO
+// THE ZERO-MEAN VALUE IS WEAKLY IMPOSED
+real[int,int] Dprime(NbEl,NbEl); Dprime = 1;
+matrix Dsecond; Dsecond = Dprime;
+D = D + Dsecond;
+};
+
+cout<<"done!"<<endl;
+
+////////////// creation of global matrix A, and inversion of the system ////////////////////////////
+
+cout<<"Assembling the matrix: ";
+matrix A = [[B,C],[C',D]];
+set(A,solver=CG); // can be changed to another sparse solver (but CG is probably the best one)
+cout<<"done! F.E. matrix created!"<<endl;

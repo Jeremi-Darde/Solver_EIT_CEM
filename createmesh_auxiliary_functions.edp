@@ -1,0 +1,57 @@
+func real fourier(real[int] alpha, int alphan, real t)
+{
+   real[int] fourier(alphan);
+   int M = (alphan-1)/2;   fourier(0) = alpha(0);
+   for(int kk=1; kk<M+1; kk++){	fourier(kk) = alpha(kk)*cos(t*kk);
+	fourier(kk+M) = alpha(kk+M)*sin(t*kk);
+   }
+   return fourier.sum;
+}
+
+func real fourierprime(real[int] alpha, int alphan, real t)
+{
+   real[int] fourier(alphan);
+   int M = (alphan-1)/2;   fourier(0) = 0;
+   for(int kk=1; kk<M+1; kk++){	fourier(kk) = -kk*alpha(kk)*sin(t*kk);
+	fourier(kk+M) = kk*alpha(kk+M)*cos(t*kk);
+   }
+   return fourier.sum;
+}
+
+func real computeLength(real[int] alpha, int alphan, real theta1, real theta2){
+	int NI = 50;
+	real[int] RES(NI-1);
+	real dt = (theta2 - theta1)/NI;
+	for(int kk=0;kk<NI-1;kk++){
+		real a = theta1 + kk*dt;
+		real b = theta1 + (kk+1)*dt;
+		real m = (a+b)/2;
+		real ra = fourier(alpha,alphan,a); 
+		real rap = fourierprime(alpha,alphan,a);
+		real fa = sqrt(ra^2 + rap^2);
+		real rb = fourier(alpha,alphan,b);
+		real rbp = fourierprime(alpha,alphan,b);
+		real fb = sqrt(rb^2 + rbp^2);
+		real rm = fourier(alpha,alphan,m);
+		real rbm = fourierprime(alpha,alphan,m);
+		real fm = sqrt(rm^2 + rbm^2);		
+		RES(kk) = dt*(fa+4*fm+fb)/6;
+	}
+	return RES.sum;
+}
+
+func real fixetheta2(real[int] alpha, int alphan, real theta1, real L, int Nmax){
+	real theta2 = theta1 + L/alpha(0);
+	real ftheta2 = computeLength(alpha,alphan,theta1,theta2) - L;
+	real fptheta2 = sqrt(fourier(alpha,alphan,theta2)^2 + fourierprime(alpha,alphan,theta2)^2);
+	int kk=0;
+	while((abs(ftheta2) > 10^-4)&&(kk<Nmax)){
+		theta2 = theta2 - ftheta2/fptheta2;
+		ftheta2 = computeLength(alpha,alphan,theta1,theta2) - L;
+		fptheta2 = sqrt(fourier(alpha,alphan,theta2)^2 + fourierprime(alpha,alphan,theta2)^2);
+		kk++;
+	}
+	return theta2;
+}
+
+//cout<<"TEST : "<<fixetheta2(alpha,alpha.n,0,L,15)<<endl;

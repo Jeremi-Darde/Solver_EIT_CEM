@@ -1,0 +1,30 @@
+// creation of the right hand side of the system
+
+real[int,int] unknown(NbDof + NbEl,I.m), RHS(NbDof + NbEl,I.m);
+RHS = 0; //secmem(NbDof:NbDof+NbEl-1,:) = I(:,:); // second member of CEM variational equation
+for(int kk=0;kk<NbEl;kk++){
+	for(int jj=0;jj<I.m;jj++){
+		RHS(kk+NbDof,jj) = I(kk,jj);
+	}
+}
+
+// inversion of the system
+
+cout<<"Solving the linear system --  ";
+for(int kk=0;kk<I.m;kk++){
+	unknown(:,kk) = A^-1 * RHS(:,kk);
+}
+cout<<"done!"<<endl;
+
+
+// extracting Voltages information
+
+
+real[int,int] U(NbEl,I.m);
+
+for [kk,jj, Tab:U]{
+    Tab = unknown(kk+NbDof,jj);
+}
+
+
+

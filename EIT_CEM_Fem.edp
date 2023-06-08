@@ -1,0 +1,171 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                Freefem ++ Direct solver for Electrical Impedance Tomogrophy (EIT)                         //
+//                        with the Complete Electrode Model (CEM)                                            //
+//                It is based on Finite Element discretization of the variational                            //
+//                        formulation of the CEM  proposed in                                                //
+//        Immersed boundary method for the complete electrode model in electrical impedance tomography       //
+//        	J. Dardé, N. Nasr and L. Weynans, Journal of Computational Physics, Volume 487;                  //
+//        		https://doi.org/10.1016/j.jcp.2023.112150                                                   // 
+//        see problem (2.8) and its variational formulation pages 7 and 8.                                  //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// This is the main script, run as "FreeFem++ -v 0 -ne EIT_CEM_Fem.edp" in a terminal
+
+// The script consists of three main parts:
+//                       - PARAMETERS: contains the parameters of the problem
+//                       - MAIN CODE: contains the main part of the Freefem++ code
+//                       - INFO AND PLOTS: contains the commands to see results 
+// Usually, user only needs to modify the PARAMETERS part (to set its own configuration) and the INFO AND PLOTS part.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                         PARAMETERS                                                     ///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////// Freefem parameters /////////////////////////////////////////// 
+
+
+
+////////// random seed (if needed, for example for noise)
+load "ffrandom"
+srandomdev();
+randinit(random());
+
+
+////// Lagrange FE: the macro FiniteElementSpace can be chosen as P1, P2, P3 or P4 lagrange Finite Elements (last two need to be loaded above)
+/////// loading finite elements P3 and P4 
+//////  (can be commented if not used)           
+load "Element_P3"
+load "Element_P4"
+
+macro FiniteElementSpace P2 // end of macro
+
+//// mesh size
+
+real hMESH = 1./15;
+
+//////////////////// Electrodes and shape parameters ////////////////////////////
+
+
+//////// description of the outer boundary 
+
+// geometry is supposed to be star-shaped, and can be described by an array 
+// alpha of 2*m+1 real elements, such that the boundary is described by the
+// function t \in [0,2*pi] -> alpha_0 + sum_{n=1...m} alpha_n cos(n*t) + alpha_{n+m} sin(n*t)
+
+//real[int] alpha = [1,0,0.2,-0.01,0.02,0,0.1,0.03,-0.02];
+real[int] alpha = [1,0,0.3,0,0];
+
+
+/////// electrodes configuration
+
+int NbEl = 14; // # of electrodes
+
+// the electrodes are characterized by their length L (here we suppose that all the electrodes have the same length) and their starting angles Theta1
+
+real[int] Lgth(NbEl);
+Lgth = pi*alpha(0)/NbEl;
+real[int] Theta1(NbEl); 
+for(int kk=0; kk < NbEl;kk++){
+	Theta1(kk) = 2*kk*pi/NbEl;
+}
+;
+
+
+////////////////////// Definition of the function physical data of the problem ////////////////////
+
+///////////// conductivity
+
+//func sigma = 1; 
+func sigma = 1 - 0.8*((x-0.3)^2 + (y+0.1)^2 <0.3^2); 
+
+/////////////// I := input currents
+// I is a matrix of NbEl lines (imposed) and M columns (free): each column is an input current.
+// I(n,k) is the input current on the n-th electrodes corresponding to the k-th input pattern
+// The current conservation law implies that each columns of I should be mean-free.
+
+
+real[int,int] I(NbEl,NbEl-1);  
+I = 0; 
+for(int kk= 0; kk< NbEl-1; kk++){
+I(0,kk) = 1;
+I(kk+1,kk) = - 1;
+}
+//for(int kk=0;kk<NbEl-1;kk++){
+//	real[int] UNIT(NbEl); UNIT = 1;
+//	for(int jj=0;jj<NbEl;jj++){
+//		I(jj,kk) = cos((kk+1)*2*pi*jj/NbEl);
+//	}
+//	I(:,kk) = I(:,kk) - (I(:,kk).sum/NbEl)*UNIT;	
+//}
+
+
+
+// zci: contact impedances. A vector of NbEl entries: zci(j) is the contact impedance on the j-th electrode
+
+real[int] zci(NbEl); 
+zci = 0.1; 
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                  MAIN CODE                                                              //
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////// Creation of the mesh and Finite Element space
+// Th: mesh
+// Vh: FEM space
+
+include "createmesh.edp";
+
+////////// Creation of the variational form matrices
+
+include "creatematrices.edp";
+
+///////// Computing electric potential and electrode Voltages for each input current
+
+include "systemresolution.edp";
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                  INFO AND PLOTS                                                         //
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////// electrodes information
+//cout <<"Electrodes: - lenght = "<<Lgth<<endl<<"     - starting angles = "<< Theta1 << endl;
+
+///// Current patterns
+cout<<"Current patterns: "<<I<<endl;
+
+////// the mesh
+//plot(Th, wait = true); 
+
+///// the conductivity
+// Vh sigmah = sigma;
+// plot(sigmah,wait=true,fill=true,value=true);
+
+// The electrodes Voltages
+cout << "Electrodes voltages: "<<U<<endl;
+
+////// The electric potentials
+// To see the electric potential corresponding to the kk-th current pattern
+//{int kk = 5;
+//Vh u;
+//u[](:) = unknown(0:NbDof-1,kk);
+//plot(u,wait=1,fill=1,value=1);
+//}
+// To see the electric potential corresponding to ALL input currents
+{
+    for(int kk=0;kk<I.m;kk++){
+     Vh u;
+    u[](:) = unknown(0:NbDof-1,kk);
+    plot(u,wait=1,fill=1,value=1);   
+    }
+}

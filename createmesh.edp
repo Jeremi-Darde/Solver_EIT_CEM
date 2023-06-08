@@ -1,0 +1,59 @@
+cout<<"Starting mesh and finite elements generation!"<<endl;
+
+// Labels for the Electrodes, and the part of the boundary without electrodes
+
+int[int] ElectrodesLabel(NbEl);
+for [kk, Tab: ElectrodesLabel]{
+	Tab = kk+1;
+};
+
+int NotElectrodesLabel = 0;
+
+// Vector to store the number of vertices on each electrodes, and between electrodes, for the Mesh generation
+
+int[int] BoundaryVertices(2*NbEl);
+BoundaryVertices = 10;
+
+
+// Computation of the ending angles of the electrodes, knowing starting angles, length of electrodes and Fourier parametrization of boudary
+
+include "createmesh_auxiliary_functions.edp";
+
+
+real[int,int] thetaEl(NbEl,2); // Starting and ending angles of the electrodes
+for(int kk=0;kk<NbEl;kk++){
+	thetaEl(kk,0) = Theta1(kk); // Starting angles of the electrodes
+	thetaEl(kk,1) = fixetheta2(alpha,alpha.n,thetaEl(kk,0),Lgth(kk),15); // First approximation of the ending angles of the electrodes
+}
+
+//cout<<thetaEl<<endl;
+
+// creation of the borders
+
+border Cborder(t=0,1;k){
+	real thetat;
+	if (k % 2 == 0){
+		thetat = (thetaEl(k/2,1) -thetaEl(k/2,0))*t + thetaEl(k/2,0);	
+	}
+	else{ if (k < 2*NbEl-1){
+		thetat = (thetaEl((k+1)/2,0) -thetaEl((k-1)/2,1))*t + thetaEl((k-1)/2,1);
+	}
+	else{
+		thetat = (thetaEl(0,0) +2*pi -thetaEl((k-1)/2,1))*t + thetaEl((k-1)/2,1);
+	}
+	}
+	x=fourier(alpha,alpha.n,thetat)*cos(thetat); y=fourier(alpha,alpha.n,thetat)*sin(thetat);
+	label = (k % 2 == 0) ? ElectrodesLabel(k/2) : NotElectrodesLabel;
+};
+
+// creation of the mesh
+
+mesh Th = buildmesh(Cborder(BoundaryVertices)); 
+Th = adaptmesh(Th, hMESH, IsMetric=1, nbvx=10000000);
+
+// creation of the Finite Element Space
+
+fespace Vh(Th,FiniteElementSpace);
+
+cout<<"Done!"<<endl;
+
