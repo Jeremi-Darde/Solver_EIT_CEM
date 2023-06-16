@@ -70,5 +70,5 @@ cout<<"done!"<<endl;
 
 cout<<"Assembling the matrix: ";
 matrix A = [[B,C],[C',D]];
-set(A,solver=CG); // can be changed to another sparse solver (but CG is probably the best one)
+set(A,solver=sparsesolver); // can be changed to another sparse solver (but CG is probably the best one)
 cout<<"done! F.E. matrix created!"<<endl;
